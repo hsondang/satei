@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Satei</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Satei <span>Vision LLM Experiments</span></h1>
+      <nav><a href="/history">History</a></nav>
+    </header>
+
+    <div class="error-box" id="error"></div>
+
+    <div class="infer-form">
+      <div class="drop-zone" id="dropZone">
+        <p>Drop image here<br>or click to browse</p>
+        <input type="file" accept="image/*" hidden id="fileInput">
+      </div>
+
+      <div class="form-fields">
+        <div>
+          <label for="model">Model</label>
+          <select id="model"><option value="">Loading models...</option></select>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;">
+          <label for="prompt">Prompt</label>
+          <textarea id="prompt" placeholder="Describe this image..."></textarea>
+        </div>
+        <div class="form-actions">
+          <button class="btn-primary" id="runBtn" disabled>Run Inference</button>
+          <button class="btn-secondary" id="clearBtn">Clear</button>
+          <span class="elapsed" id="elapsed"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="response-section" id="responseSection">
+      <div class="response-header">
+        <h3>Response</h3>
+        <div class="response-meta">
+          <span id="respBadge"></span>
+          <span id="respDuration"></span>
+          <button class="copy-btn" id="copyBtn">Copy</button>
+        </div>
+      </div>
+      <div class="response-text" id="responseText"></div>
+      <div class="json-section" id="jsonSection" style="display:none;">
+        <h4>JSON Keys &amp; Values</h4>
+        <table class="json-table">
+          <thead><tr><th>Key</th><th>Value</th><th>Type</th></tr></thead>
+          <tbody id="jsonBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
