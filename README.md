@@ -1,6 +1,6 @@
 # Satei
 
-Vision language model experiment platform. Send images + text prompts to vision LLMs running on Ollama, view responses with JSON detection, and browse inference history.
+Vision language model experiment platform. Send images + text prompts to vision LLMs running on Ollama, view responses with JSON detection, and run automated experiments with pass/fail criteria evaluation.
 
 ## Prerequisites
 
@@ -36,10 +36,37 @@ Open http://localhost:8000 in your browser.
 
 ## Usage
 
-1. **Run inference** — Select a vision model from the dropdown, drop or browse an image, type a prompt, and click "Run Inference".
-2. **JSON detection** — If the model response is valid JSON, a key-value table shows all keys with their values and types.
-3. **History** — Click "History" in the top nav to browse all past inferences. Click any row to see the full detail including the original image.
-4. **Re-run** — From the history detail view, click "Re-run with same prompt" to go back to the main page with the model and prompt pre-filled.
+### Ad-hoc inference
+
+1. Select a vision model, drop/browse an image, type a prompt, and click **Run Inference**.
+2. If the response is valid JSON, a key-value table shows all keys with their values and types.
+3. Past inferences appear in the **Recent Inferences** section below the form. Click any row to expand the full detail including the original image.
+4. From the detail view, click **Re-run with same prompt** to pre-fill the model and prompt.
+
+### Experiments
+
+1. Navigate to **Experiments** from the top nav.
+2. Click **+ New Experiment** — give it a name, select a model, and write a prompt.
+3. After saving, add **tests** — each test is an image with criteria (JSON key + expected value + match mode).
+4. Go to the experiment detail page and click **Run Experiment**. Results stream in progressively as each test completes.
+5. The results table shows pass/fail per criterion (green/red cells), with a summary bar showing pass rate, total time, average time per test, and JSON response rate.
+
+#### Criteria match modes
+
+- **exact** — The actual JSON value (as string) must exactly equal the expected value.
+- **contains** — The actual JSON value (as string) must contain the expected value as a substring.
+
+Criteria keys support dot-notation for nested JSON (e.g. `address.city`).
+
+## Pages
+
+| Path | Description |
+|---|---|
+| `/` | Ad-hoc inference + inline history |
+| `/experiments` | Experiments list |
+| `/experiments/new` | Create a new experiment |
+| `/experiments/{id}` | Experiment detail — run, view results, summary stats |
+| `/experiments/{id}/edit` | Edit experiment — manage tests and criteria |
 
 ## Configuration
 
@@ -51,13 +78,14 @@ Open http://localhost:8000 in your browser.
 ## Project structure
 
 ```
-main.py            FastAPI app, all API routes
-db.py              SQLite database layer
-requirements.txt   Python dependencies
+main.py                          FastAPI app, all API routes
+db.py                            SQLite database layer (6 tables)
+requirements.txt                 Python dependencies
 static/
-  index.html       Main inference page
-  history.html     History browser page
-  app.js           Main page frontend logic
-  history.js       History page frontend logic
-  style.css        Shared styles (dark theme)
+  shared.js                      Shared utilities (DOM helpers, formatters, drop zones)
+  index.html / app.js            Ad-hoc inference + inline history
+  experiments.html / .js          Experiments list page
+  experiment-edit.html / .js      Experiment creation & test management
+  experiment-detail.html / .js    Experiment results, run execution, summary
+  style.css                      Styles (dark theme)
 ```

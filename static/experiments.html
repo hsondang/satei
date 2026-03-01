@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Satei - Experiments</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Satei <span>Experiments</span></h1>
+      <nav><a href="/">Home</a></nav>
+    </header>
+
+    <div class="error-box" id="error"></div>
+
+    <div class="toolbar">
+      <a href="/experiments/new" class="btn-primary" style="text-decoration:none;display:inline-block;">+ New Experiment</a>
+    </div>
+
+    <div id="experimentsList"></div>
+    <div class="empty-state" id="emptyState" style="display:none;">
+      No experiments yet. Create your first one!
+    </div>
+  </div>
+
+  <script src="/static/shared.js"></script>
+  <script src="/static/experiments.js"></script>
+</body>
+</html>

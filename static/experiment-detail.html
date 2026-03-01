@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Satei - Experiment</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Satei <span id="expName">Experiment</span></h1>
+      <nav>
+        <a id="editLink" href="#">Edit</a>
+        <a href="/experiments">Experiments</a>
+        <a href="/">Home</a>
+      </nav>
+    </header>
+
+    <div class="error-box" id="error"></div>
+
+    <!-- Experiment info -->
+    <div class="card" id="expInfo">
+      <div class="exp-meta">
+        <div><span class="label">Prompt</span><div class="prompt-full" id="expPrompt"></div></div>
+        <div><span class="label">Model</span><br><span id="expModel"></span></div>
+      </div>
+      <div class="form-actions" style="margin-top:12px;">
+        <button class="btn-primary" id="runBtn">Run Experiment</button>
+        <select id="runSelect" class="input-field input-sm" style="width:auto;">
+          <option value="latest">Latest Run</option>
+        </select>
+        <span id="runStatus" class="text-dim"></span>
+      </div>
+    </div>
+
+    <!-- Results table -->
+    <div id="resultsSection" style="display:none;">
+      <h3 class="section-title">Results</h3>
+      <div class="results-table-wrap">
+        <table class="results-table" id="resultsTable">
+          <thead id="resultsHead"></thead>
+          <tbody id="resultsBody"></tbody>
+        </table>
+      </div>
+
+      <!-- Summary -->
+      <div class="summary-bar" id="summaryBar"></div>
+    </div>
+
+    <div class="empty-state" id="noResults">
+      No results yet. Click "Run Experiment" to start.
+    </div>
+  </div>
+
+  <script src="/static/shared.js"></script>
+  <script src="/static/experiment-detail.js"></script>
+</body>
+</html>

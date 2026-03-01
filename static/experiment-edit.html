@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Satei - Edit Experiment</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Satei <span id="pageTitle">New Experiment</span></h1>
+      <nav><a href="/experiments">Experiments</a></nav>
+    </header>
+
+    <div class="error-box" id="error"></div>
+
+    <!-- Experiment metadata form -->
+    <div class="card" id="metaForm">
+      <div class="form-row">
+        <div style="flex:1;">
+          <label for="expName">Name</label>
+          <input type="text" id="expName" placeholder="e.g. Invoice Parser" class="input-field">
+        </div>
+      </div>
+      <div class="form-row">
+        <div style="flex:1;">
+          <label for="expModel">Model</label>
+          <select id="expModel"><option value="">Loading models...</option></select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div style="flex:1;">
+          <label for="expPrompt">Prompt</label>
+          <textarea id="expPrompt" class="input-field" rows="3" placeholder="Extract all fields from this image as JSON..."></textarea>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn-primary" id="saveMetaBtn">Save Experiment</button>
+      </div>
+    </div>
+
+    <!-- Tests section (shown after experiment is saved) -->
+    <div id="testsSection" style="display:none;">
+      <div class="section-header">
+        <h3 class="section-title">Tests</h3>
+        <button class="btn-primary" id="addTestBtn">+ Add Test</button>
+      </div>
+
+      <div id="testCards"></div>
+
+      <!-- Add test form (hidden by default) -->
+      <div class="card" id="newTestCard" style="display:none;">
+        <h4>New Test</h4>
+        <div class="form-row" style="align-items:flex-start;">
+          <div class="drop-zone drop-zone-sm" id="testDropZone">
+            <p>Drop image</p>
+            <input type="file" accept="image/*" hidden id="testFileInput">
+          </div>
+          <div style="flex:1;">
+            <label for="testLabel">Label</label>
+            <input type="text" id="testLabel" placeholder="e.g. bank_statement_1" class="input-field">
+            <div class="criteria-list" id="newCriteriaList">
+              <label>Criteria</label>
+            </div>
+            <button class="btn-secondary btn-sm" id="addCriterionBtn">+ Add Criterion</button>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn-primary" id="saveTestBtn">Save Test</button>
+          <button class="btn-secondary" id="cancelTestBtn">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/shared.js"></script>
+  <script src="/static/experiment-edit.js"></script>
+</body>
+</html>

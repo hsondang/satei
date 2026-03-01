@@ -10,11 +10,12 @@
   <div class="container">
     <header>
       <h1>Satei <span>Vision LLM Experiments</span></h1>
-      <nav><a href="/history">History</a></nav>
+      <nav><a href="/experiments">Experiments</a></nav>
     </header>
 
     <div class="error-box" id="error"></div>
 
+    <!-- Inference form -->
     <div class="infer-form">
       <div class="drop-zone" id="dropZone">
         <p>Drop image here<br>or click to browse</p>
@@ -38,6 +39,7 @@
       </div>
     </div>
 
+    <!-- Response section -->
     <div class="response-section" id="responseSection">
       <div class="response-header">
         <h3>Response</h3>
@@ -56,8 +58,73 @@
         </table>
       </div>
     </div>
+
+    <!-- Inline history -->
+    <div class="history-section">
+      <h3 class="section-title">Recent Inferences</h3>
+
+      <div id="historyList">
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Model</th>
+              <th>Prompt</th>
+              <th>JSON</th>
+              <th>Duration</th>
+              <th>Time</th>
+            </tr>
+          </thead>
+          <tbody id="historyBody"></tbody>
+        </table>
+        <div class="pagination" id="pagination"></div>
+      </div>
+
+      <div class="empty-state" id="emptyState" style="display:none;">
+        No inference history yet. Run your first experiment above!
+      </div>
+
+      <!-- Detail panel -->
+      <div class="detail-panel" id="detailPanel">
+        <div class="detail-header">
+          <img id="detailImg" src="" alt="Input image">
+          <div class="detail-meta">
+            <div><span class="label">Model</span><br><span id="detailModel"></span></div>
+            <div><span class="label">Duration</span><br><span id="detailDuration"></span></div>
+            <div><span class="label">Time</span><br><span id="detailTime"></span></div>
+            <div>
+              <span class="label">Prompt</span>
+              <div class="prompt-full" id="detailPrompt"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="response-header">
+          <h3>Response</h3>
+          <div class="response-meta">
+            <span id="detailBadge"></span>
+            <button class="copy-btn" id="detailCopy">Copy</button>
+          </div>
+        </div>
+        <div class="response-text" id="detailResponse"></div>
+
+        <div class="json-section" id="detailJsonSection" style="display:none;">
+          <h4>JSON Keys &amp; Values</h4>
+          <table class="json-table">
+            <thead><tr><th>Key</th><th>Value</th><th>Type</th></tr></thead>
+            <tbody id="detailJsonBody"></tbody>
+          </table>
+        </div>
+
+        <div class="detail-actions">
+          <a id="rerunLink" href="/" class="btn-primary" style="text-decoration:none;display:inline-block;">Re-run with same prompt</a>
+          <button class="btn-danger" id="deleteBtn">Delete</button>
+        </div>
+      </div>
+    </div>
   </div>
 
+  <script src="/static/shared.js"></script>
   <script src="/static/app.js"></script>
 </body>
 </html>
