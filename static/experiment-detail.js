@@ -356,17 +356,6 @@ function showTestModal(r) {
     $("#modalBadge").innerHTML = '<span class="badge badge-text">Text</span>';
   }
 
-  // JSON table
-  const jsonSection = $("#modalJsonSection");
-  const jsonBody = $("#modalJsonBody");
-  if (r.is_json && r.parsed_json) {
-    jsonSection.style.display = "block";
-    jsonBody.innerHTML = "";
-    renderJsonRows(r.parsed_json, jsonBody, "");
-  } else {
-    jsonSection.style.display = "none";
-  }
-
   // Criteria comparison table
   const criteriaSection = $("#modalCriteriaSection");
   const criteriaBody = $("#modalCriteriaBody");

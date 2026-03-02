@@ -19,7 +19,6 @@ Other supported vision models: `qwen2.5-vl`, `llava`, `llama3.2-vision`, `gemma3
 ## Setup
 
 ```bash
-cd /Users/hson/projects/satei
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
@@ -50,6 +49,8 @@ Open http://localhost:8000 in your browser.
 3. After saving, add **tests** — each test is an image with criteria (JSON key + expected value + match mode).
 4. Go to the experiment detail page and click **Run Experiment**. Results stream in progressively as each test completes.
 5. The results table shows pass/fail per criterion (green/red cells), with a summary bar showing pass rate, total time, average time per test, and JSON response rate.
+6. **Failed criteria** are shown as red pills — click to toggle between the actual value (red) and the expected value (orange).
+7. **Click any result row** to open a detail modal showing the test image, full response text, parsed JSON keys, and a criteria comparison table (expected vs actual for each key).
 
 #### Criteria match modes
 
