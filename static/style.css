@@ -510,6 +510,141 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   text-transform: uppercase;
 }
 
+.results-table tbody tr {
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+/* ── Toggle value pill (fail cells) ──────────────────── */
+
+.toggle-value {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: rgba(248, 113, 113, 0.25);
+  color: var(--red);
+  cursor: pointer;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  transition: background 0.15s, color 0.15s;
+  user-select: none;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.toggle-value:hover {
+  background: rgba(248, 113, 113, 0.4);
+}
+
+.toggle-value.showing-expected {
+  background: rgba(251, 146, 60, 0.25);
+  color: var(--orange);
+}
+
+.toggle-value.showing-expected:hover {
+  background: rgba(251, 146, 60, 0.4);
+}
+
+/* ── Test detail modal ───────────────────────────────── */
+
+.modal-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 1000;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 40px 20px;
+  overflow-y: auto;
+}
+
+.modal-overlay.visible {
+  display: flex;
+}
+
+.modal-content {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 800px;
+  width: 100%;
+  position: relative;
+  max-height: calc(100vh - 80px);
+  overflow-y: auto;
+}
+
+.modal-close {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 1.2rem;
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 2px 10px;
+  line-height: 1;
+}
+
+.modal-close:hover {
+  color: var(--text);
+  border-color: var(--text-dim);
+}
+
+/* ── Criteria comparison table ───────────────────────── */
+
+.criteria-section {
+  margin-top: 16px;
+}
+
+.criteria-section h4 {
+  font-size: 0.85rem;
+  font-weight: 500;
+  margin-bottom: 8px;
+  color: var(--text-dim);
+}
+
+.criteria-compare-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.criteria-compare-table th {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-dim);
+  font-weight: 500;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.criteria-compare-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  vertical-align: top;
+}
+
+.criteria-compare-table tr:last-child td {
+  border-bottom: none;
+}
+
+.criteria-compare-table tr:hover {
+  background: rgba(108, 140, 255, 0.04);
+}
+
 /* ── Summary bar ─────────────────────────────────────── */
 
 .summary-bar {
@@ -578,4 +713,6 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   .detail-header { grid-template-columns: 1fr; }
   .summary-bar { flex-wrap: wrap; gap: 16px; }
   .test-card-body { flex-direction: column; }
+  .modal-content { padding: 16px; }
+  .modal-overlay { padding: 20px 10px; }
 }

@@ -10,6 +10,7 @@ const noResults = $("#noResults");
 let experimentId = null;
 let experiment = null;
 let pollTimer = null;
+let currentResults = [];
 
 // ── Get experiment ID from URL ──────────────────────────────
 
@@ -125,6 +126,7 @@ function renderRun(run) {
   }
 
   const results = run.results || [];
+  currentResults = results;
   if (results.length === 0) {
     resultsHead.innerHTML = "";
     resultsBody.innerHTML = '<tr><td class="text-dim" style="padding:20px;">Waiting for results...</td></tr>';
@@ -186,11 +188,14 @@ function renderRun(run) {
 
         const passed = criteriaResults[String(crit.id)];
         const actual = r.parsed_json ? getNestedValue(r.parsed_json, key) : null;
-        const cellClass = passed ? "result-cell-pass" : "result-cell-fail";
         const actualStr = actual !== null && actual !== undefined ? String(actual) : "null";
-        const tooltip = `Expected: ${crit.expected_value}\nGot: ${actualStr}`;
 
-        cellsHtml += `<td class="${cellClass}" title="${escHtml(tooltip)}">${escHtml(actualStr)}</td>`;
+        if (passed) {
+          const tooltip = `Expected: ${crit.expected_value}\nGot: ${actualStr}`;
+          cellsHtml += `<td class="result-cell-pass" title="${escHtml(tooltip)}">${escHtml(actualStr)}</td>`;
+        } else {
+          cellsHtml += `<td class="result-cell-fail"><span class="toggle-value" data-actual="${escHtml(actualStr)}" data-expected="${escHtml(crit.expected_value)}" data-showing="actual">${escHtml(actualStr)}</span></td>`;
+        }
       }
 
       tr.innerHTML = `
@@ -305,6 +310,117 @@ function startPolling(runId) {
     }
   }, 3000);
 }
+
+// ── Toggle + row click (event delegation) ───────────────────
+
+resultsBody.addEventListener("click", function (e) {
+  // Handle toggle-value clicks (actual/expected toggle)
+  const toggleSpan = e.target.closest(".toggle-value");
+  if (toggleSpan) {
+    e.stopPropagation();
+    if (toggleSpan.dataset.showing === "actual") {
+      toggleSpan.textContent = toggleSpan.dataset.expected;
+      toggleSpan.dataset.showing = "expected";
+      toggleSpan.classList.add("showing-expected");
+    } else {
+      toggleSpan.textContent = toggleSpan.dataset.actual;
+      toggleSpan.dataset.showing = "actual";
+      toggleSpan.classList.remove("showing-expected");
+    }
+    return;
+  }
+
+  // Handle row clicks (open detail modal)
+  const row = e.target.closest("tr");
+  if (!row || !resultsBody.contains(row)) return;
+  const rowIndex = Array.from(resultsBody.children).indexOf(row);
+  if (rowIndex < 0 || rowIndex >= currentResults.length) return;
+  showTestModal(currentResults[rowIndex]);
+});
+
+// ── Test detail modal ────────────────────────────────────────
+
+function showTestModal(r) {
+  const modal = $("#testModal");
+
+  $("#modalImg").src = `/api/experiments/${experimentId}/tests/${r.test_id}/image`;
+  $("#modalLabel").textContent = r.label || "Unlabeled";
+  $("#modalModel").textContent = experiment ? experiment.model : "";
+  $("#modalDuration").textContent = formatDuration(r.duration_ms);
+  $("#modalPrompt").textContent = experiment ? experiment.prompt : "";
+  $("#modalResponse").textContent = r.response_text;
+
+  if (r.is_json) {
+    $("#modalBadge").innerHTML = '<span class="badge badge-json">JSON</span>';
+  } else {
+    $("#modalBadge").innerHTML = '<span class="badge badge-text">Text</span>';
+  }
+
+  // JSON table
+  const jsonSection = $("#modalJsonSection");
+  const jsonBody = $("#modalJsonBody");
+  if (r.is_json && r.parsed_json) {
+    jsonSection.style.display = "block";
+    jsonBody.innerHTML = "";
+    renderJsonRows(r.parsed_json, jsonBody, "");
+  } else {
+    jsonSection.style.display = "none";
+  }
+
+  // Criteria comparison table
+  const criteriaSection = $("#modalCriteriaSection");
+  const criteriaBody = $("#modalCriteriaBody");
+  const criteria = r.criteria || [];
+  if (criteria.length > 0) {
+    criteriaSection.style.display = "block";
+    criteriaBody.innerHTML = "";
+    const criteriaResults = r.criteria_results || {};
+
+    for (const c of criteria) {
+      const actual = r.parsed_json ? getNestedValue(r.parsed_json, c.json_key) : null;
+      const actualStr = actual !== null && actual !== undefined ? String(actual) : "null";
+      const passed = criteriaResults[String(c.id)];
+      const statusBadge = passed
+        ? '<span class="badge badge-json">PASS</span>'
+        : '<span class="badge badge-fail">FAIL</span>';
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="key">${escHtml(c.json_key)}</td>
+        <td>${escHtml(c.expected_value)}</td>
+        <td>${escHtml(actualStr)}</td>
+        <td class="text-dim">${escHtml(c.match_mode)}</td>
+        <td>${statusBadge}</td>
+      `;
+      criteriaBody.appendChild(tr);
+    }
+  } else {
+    criteriaSection.style.display = "none";
+  }
+
+  $("#modalCopy").onclick = () => copyToClipboard(r.response_text, $("#modalCopy"));
+
+  modal.classList.add("visible");
+}
+
+$("#modalClose").addEventListener("click", () => {
+  $("#testModal").classList.remove("visible");
+});
+
+$("#testModal").addEventListener("click", (e) => {
+  if (e.target === $("#testModal")) {
+    $("#testModal").classList.remove("visible");
+  }
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    const modal = $("#testModal");
+    if (modal.classList.contains("visible")) {
+      modal.classList.remove("visible");
+    }
+  }
+});
 
 // ── Init ────────────────────────────────────────────────────
 

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Satei - Experiment</title>
-  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/style.css?v=2">
 </head>
 <body>
   <div class="container">
@@ -51,9 +51,56 @@
     <div class="empty-state" id="noResults">
       No results yet. Click "Run Experiment" to start.
     </div>
+
+    <!-- Test detail modal -->
+    <div class="modal-overlay" id="testModal">
+      <div class="modal-content">
+        <button class="modal-close" id="modalClose">&times;</button>
+
+        <div class="detail-header">
+          <img id="modalImg" src="" alt="Test image">
+          <div class="detail-meta">
+            <div><span class="label">Label</span><br><span id="modalLabel"></span></div>
+            <div><span class="label">Model</span><br><span id="modalModel"></span></div>
+            <div><span class="label">Duration</span><br><span id="modalDuration"></span></div>
+            <div>
+              <span class="label">Prompt</span>
+              <div class="prompt-full" id="modalPrompt"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="response-header">
+          <h3>Response</h3>
+          <div class="response-meta">
+            <span id="modalBadge"></span>
+            <button class="copy-btn" id="modalCopy">Copy</button>
+          </div>
+        </div>
+        <div class="response-text" id="modalResponse"></div>
+
+        <div class="json-section" id="modalJsonSection" style="display:none;">
+          <h4>JSON Keys &amp; Values</h4>
+          <table class="json-table">
+            <thead><tr><th>Key</th><th>Value</th><th>Type</th></tr></thead>
+            <tbody id="modalJsonBody"></tbody>
+          </table>
+        </div>
+
+        <div class="criteria-section" id="modalCriteriaSection" style="display:none;">
+          <h4>Criteria Comparison</h4>
+          <table class="criteria-compare-table">
+            <thead>
+              <tr><th>Key</th><th>Expected</th><th>Actual</th><th>Mode</th><th>Status</th></tr>
+            </thead>
+            <tbody id="modalCriteriaBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <script src="/static/shared.js"></script>
-  <script src="/static/experiment-detail.js"></script>
+  <script src="/static/shared.js?v=2"></script>
+  <script src="/static/experiment-detail.js?v=2"></script>
 </body>
 </html>
