@@ -22,8 +22,15 @@ from db import (
 
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
+INFER_TIMEOUT = int(os.getenv("SATEI_INFER_TIMEOUT", "18000"))
 
 KNOWN_VISION_FAMILIES = {"qwen3vl", "qwen2vl", "clip", "mllama", "llava", "gemma3", "minicpm"}
+
+_abort_event = asyncio.Event()
+
+
+class InferenceAborted(Exception):
+    pass
 
 
 @asynccontextmanager
@@ -64,15 +71,34 @@ def parse_llm_response(ollama_data):
     return response_text, is_json, parsed_json, ollama_meta
 
 
-async def call_ollama(*, model, prompt, image_b64):
+async def call_ollama(*, model, prompt, image_b64, abortable=False):
     """Send an image+prompt to Ollama. Returns raw response dict."""
     payload = {
         "model": model,
         "messages": [{"role": "user", "content": prompt, "images": [image_b64]}],
         "stream": False,
     }
-    async with httpx.AsyncClient(timeout=300.0) as client:
-        resp = await client.post(f"{OLLAMA_URL}/api/chat", json=payload)
+    async with httpx.AsyncClient(timeout=float(INFER_TIMEOUT)) as client:
+        if abortable:
+            _abort_event.clear()
+            call_task = asyncio.create_task(
+                client.post(f"{OLLAMA_URL}/api/chat", json=payload)
+            )
+            abort_task = asyncio.create_task(_abort_event.wait())
+            done, pending = await asyncio.wait(
+                {call_task, abort_task}, return_when=asyncio.FIRST_COMPLETED
+            )
+            for t in pending:
+                t.cancel()
+                try:
+                    await t
+                except asyncio.CancelledError:
+                    pass
+            if abort_task in done:
+                raise InferenceAborted("Inference aborted by user")
+            resp = call_task.result()
+        else:
+            resp = await client.post(f"{OLLAMA_URL}/api/chat", json=payload)
         resp.raise_for_status()
     return resp.json()
 
@@ -139,6 +165,13 @@ async def experiment_edit_page(experiment_id: int):
     return FileResponse(os.path.join(STATIC_DIR, "experiment-edit.html"))
 
 
+# ── API: Config ──────────────────────────────────────────────────────
+
+@app.get("/api/config")
+async def get_config():
+    return {"infer_timeout": INFER_TIMEOUT}
+
+
 # ── API: Models ──────────────────────────────────────────────────────
 
 @app.get("/api/models")
@@ -179,11 +212,35 @@ async def infer(image: UploadFile, prompt: str = Form(...), model: str = Form(..
 
     start = time.time()
     try:
-        data = await call_ollama(model=model, prompt=prompt, image_b64=b64_image)
+        data = await call_ollama(model=model, prompt=prompt, image_b64=b64_image,
+                                 abortable=True)
     except httpx.ConnectError:
         raise HTTPException(502, "Cannot connect to Ollama. Is it running?")
+    except InferenceAborted:
+        duration_ms = int((time.time() - start) * 1000)
+        return save_inference(
+            model=model, prompt=prompt, response_text="Aborted by user",
+            is_json=False, parsed_json=None,
+            image_b64=b64_image, image_mime=mime,
+            duration_ms=duration_ms, ollama_meta=None, status="aborted",
+        )
+    except httpx.TimeoutException:
+        duration_ms = int((time.time() - start) * 1000)
+        return save_inference(
+            model=model, prompt=prompt,
+            response_text=f"Timed out after {duration_ms // 1000}s",
+            is_json=False, parsed_json=None,
+            image_b64=b64_image, image_mime=mime,
+            duration_ms=duration_ms, ollama_meta=None, status="timeout",
+        )
     except httpx.HTTPError as e:
-        raise HTTPException(502, f"Ollama error: {e}")
+        duration_ms = int((time.time() - start) * 1000)
+        return save_inference(
+            model=model, prompt=prompt, response_text=f"Error: {e}",
+            is_json=False, parsed_json=None,
+            image_b64=b64_image, image_mime=mime,
+            duration_ms=duration_ms, ollama_meta=None, status="error",
+        )
     duration_ms = int((time.time() - start) * 1000)
 
     response_text, is_json, parsed_json, ollama_meta = parse_llm_response(data)
@@ -195,6 +252,12 @@ async def infer(image: UploadFile, prompt: str = Form(...), model: str = Form(..
         duration_ms=duration_ms, ollama_meta=ollama_meta,
     )
     return record
+
+
+@app.post("/api/infer/abort")
+async def abort_inference():
+    _abort_event.set()
+    return {"ok": True}
 
 
 @app.get("/api/history")

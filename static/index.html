@@ -33,6 +33,7 @@
         </div>
         <div class="form-actions">
           <button class="btn-primary" id="runBtn" disabled>Run Inference</button>
+          <button class="btn-danger" id="abortBtn" style="display:none;">Abort</button>
           <button class="btn-secondary" id="clearBtn">Clear</button>
           <span class="elapsed" id="elapsed"></span>
         </div>
@@ -70,7 +71,7 @@
               <th>#</th>
               <th>Model</th>
               <th>Prompt</th>
-              <th>JSON</th>
+              <th>Status</th>
               <th>Duration</th>
               <th>Time</th>
             </tr>
@@ -98,6 +99,8 @@
             </div>
           </div>
         </div>
+
+        <div class="status-notice" id="detailStatusNotice" style="display:none;"></div>
 
         <div class="response-header">
           <h3>Response</h3>

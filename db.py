@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS inferences (
     image_mime    TEXT DEFAULT 'image/png',
     duration_ms   INTEGER NOT NULL,
     ollama_meta   TEXT,
+    status        TEXT NOT NULL DEFAULT 'success',
     created_at    TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -90,24 +91,31 @@ def _conn():
 def init_db():
     conn = _conn()
     conn.executescript(SCHEMA)
-    conn.commit()
+    # Migration: add status column to existing inferences table
+    try:
+        conn.execute("ALTER TABLE inferences ADD COLUMN status TEXT NOT NULL DEFAULT 'success'")
+        conn.commit()
+    except Exception:
+        pass  # Column already exists
     conn.close()
 
 
 # ── Inferences ───────────────────────────────────────────────
 
 def save_inference(*, model, prompt, response_text, is_json, parsed_json,
-                   image_b64, image_mime, duration_ms, ollama_meta):
+                   image_b64, image_mime, duration_ms, ollama_meta,
+                   status="success"):
     conn = _conn()
     cursor = conn.execute(
         "INSERT INTO inferences "
-        "(model, prompt, response_text, is_json, parsed_json, image_b64, image_mime, duration_ms, ollama_meta) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "(model, prompt, response_text, is_json, parsed_json, image_b64, image_mime, duration_ms, ollama_meta, status) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (
             model, prompt, response_text, int(is_json),
             json.dumps(parsed_json) if parsed_json is not None else None,
             image_b64, image_mime, duration_ms,
             json.dumps(ollama_meta) if ollama_meta is not None else None,
+            status,
         ),
     )
     conn.commit()
@@ -122,7 +130,7 @@ def get_history(page=1, per_page=20):
     total = conn.execute("SELECT COUNT(*) FROM inferences").fetchone()[0]
     offset = (page - 1) * per_page
     rows = conn.execute(
-        "SELECT id, model, prompt, response_text, is_json, duration_ms, created_at "
+        "SELECT id, model, prompt, response_text, is_json, duration_ms, status, created_at "
         "FROM inferences ORDER BY created_at DESC LIMIT ? OFFSET ?",
         (per_page, offset),
     ).fetchall()
