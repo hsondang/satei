@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, UploadFile, Form, HTTPException
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, Response, StreamingResponse
 from pydantic import BaseModel
 import httpx
 
@@ -25,6 +25,7 @@ STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 INFER_TIMEOUT = int(os.getenv("SATEI_INFER_TIMEOUT", "18000"))
 
 KNOWN_VISION_FAMILIES = {"qwen3vl", "qwen2vl", "clip", "mllama", "llava", "gemma3", "minicpm"}
+KNOWN_THINKING_FAMILIES = {"qwen3", "qwen3vl", "deepseek-r1"}
 
 _abort_event = asyncio.Event()
 
@@ -101,6 +102,41 @@ async def call_ollama(*, model, prompt, image_b64, abortable=False):
             resp = await client.post(f"{OLLAMA_URL}/api/chat", json=payload)
         resp.raise_for_status()
     return resp.json()
+
+
+async def stream_ollama(*, model, prompt, image_b64):
+    """Stream an image+prompt to Ollama. Yields dicts for each chunk."""
+    payload = {
+        "model": model,
+        "messages": [{"role": "user", "content": prompt, "images": [image_b64]}],
+        "stream": True,
+        "think": True,
+    }
+    _abort_event.clear()
+    async with httpx.AsyncClient(timeout=float(INFER_TIMEOUT)) as client:
+        async with client.stream("POST", f"{OLLAMA_URL}/api/chat", json=payload) as resp:
+            resp.raise_for_status()
+            async for line in resp.aiter_lines():
+                if _abort_event.is_set():
+                    yield {"type": "abort"}
+                    return
+                if not line.strip():
+                    continue
+                chunk = json.loads(line)
+                msg = chunk.get("message", {})
+
+                thinking = msg.get("thinking", "")
+                content = msg.get("content", "")
+
+                if thinking:
+                    yield {"type": "thinking", "text": thinking}
+                if content:
+                    yield {"type": "content", "text": content}
+
+                if chunk.get("done"):
+                    meta = {k: v for k, v in chunk.items() if k != "message"}
+                    yield {"type": "done", "meta": meta}
+                    return
 
 
 def get_nested_value(obj, dotted_key):
@@ -195,6 +231,7 @@ async def list_models():
                 "size": m.get("size"),
                 "family": m.get("details", {}).get("family"),
                 "parameter_size": m.get("details", {}).get("parameter_size"),
+                "supports_thinking": any(f in KNOWN_THINKING_FAMILIES for f in families),
             })
     return {"models": vision}
 
@@ -252,6 +289,81 @@ async def infer(image: UploadFile, prompt: str = Form(...), model: str = Form(..
         duration_ms=duration_ms, ollama_meta=ollama_meta,
     )
     return record
+
+
+@app.post("/api/infer/stream")
+async def infer_stream(image: UploadFile, prompt: str = Form(...), model: str = Form(...)):
+    image_bytes = await image.read()
+    if len(image_bytes) > 20 * 1024 * 1024:
+        raise HTTPException(413, "Image too large (max 20MB)")
+
+    b64_image = base64.b64encode(image_bytes).decode("utf-8")
+    mime = image.content_type or "image/png"
+
+    async def event_generator():
+        start = time.time()
+        full_content = ""
+        full_thinking = ""
+        final_meta = None
+
+        try:
+            async for chunk in stream_ollama(model=model, prompt=prompt, image_b64=b64_image):
+                if chunk["type"] == "thinking":
+                    full_thinking += chunk["text"]
+                    yield f"event: thinking\ndata: {json.dumps({'text': chunk['text']})}\n\n"
+                elif chunk["type"] == "content":
+                    full_content += chunk["text"]
+                    yield f"event: content\ndata: {json.dumps({'text': chunk['text']})}\n\n"
+                elif chunk["type"] == "abort":
+                    duration_ms = int((time.time() - start) * 1000)
+                    record = save_inference(
+                        model=model, prompt=prompt, response_text="Aborted by user",
+                        is_json=False, parsed_json=None,
+                        image_b64=b64_image, image_mime=mime,
+                        duration_ms=duration_ms, ollama_meta=None, status="aborted",
+                    )
+                    yield f"event: abort\ndata: {json.dumps(record)}\n\n"
+                    return
+                elif chunk["type"] == "done":
+                    final_meta = chunk["meta"]
+
+        except httpx.ConnectError:
+            yield f"event: error\ndata: {json.dumps({'detail': 'Cannot connect to Ollama. Is it running?'})}\n\n"
+            return
+        except httpx.TimeoutException:
+            duration_ms = int((time.time() - start) * 1000)
+            record = save_inference(
+                model=model, prompt=prompt,
+                response_text=f"Timed out after {duration_ms // 1000}s",
+                is_json=False, parsed_json=None,
+                image_b64=b64_image, image_mime=mime,
+                duration_ms=duration_ms, ollama_meta=None, status="timeout",
+            )
+            yield f"event: error\ndata: {json.dumps(record)}\n\n"
+            return
+        except httpx.HTTPError as e:
+            yield f"event: error\ndata: {json.dumps({'detail': str(e)})}\n\n"
+            return
+
+        duration_ms = int((time.time() - start) * 1000)
+        response_text, is_json, parsed_json, ollama_meta = parse_llm_response(
+            {"message": {"content": full_content}, **(final_meta or {})}
+        )
+
+        record = save_inference(
+            model=model, prompt=prompt, response_text=response_text,
+            is_json=is_json, parsed_json=parsed_json,
+            image_b64=b64_image, image_mime=mime,
+            duration_ms=duration_ms, ollama_meta=ollama_meta,
+        )
+        record["thinking_content"] = full_thinking
+        yield f"event: done\ndata: {json.dumps(record)}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @app.post("/api/infer/abort")

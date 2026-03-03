@@ -92,7 +92,7 @@ async function loadModels(selectEl) {
     selectEl.innerHTML = "";
     if (data.models.length === 0) {
       selectEl.innerHTML = '<option value="">No vision models found</option>';
-      return;
+      return [];
     }
     for (const m of data.models) {
       const opt = document.createElement("option");
@@ -100,9 +100,11 @@ async function loadModels(selectEl) {
       opt.textContent = `${m.name} (${m.parameter_size || "?"})`;
       selectEl.appendChild(opt);
     }
+    return data.models;
   } catch (e) {
     showError(e.message);
     selectEl.innerHTML = '<option value="">Error loading models</option>';
+    return [];
   }
 }
 

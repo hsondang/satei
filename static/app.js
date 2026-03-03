@@ -14,6 +14,11 @@ const jsonSection = $("#jsonSection");
 const jsonBody = $("#jsonBody");
 const copyBtn = $("#copyBtn");
 const abortBtn = $("#abortBtn");
+const verboseToggle = $("#verboseToggle");
+const verboseLabel = $("#verboseLabel");
+const thinkingPanel = $("#thinkingPanel");
+const thinkingContent = $("#thinkingContent");
+const thinkingStatus = $("#thinkingStatus");
 
 // History refs
 const historyBody = $("#historyBody");
@@ -27,6 +32,8 @@ let elapsedTimer = null;
 let currentPage = 1;
 let selectedId = null;
 let inferTimeout = null;
+let streamAbortController = null;
+let modelCapabilities = {};
 
 // ── Image handling ──────────────────────────────────────────
 
@@ -39,7 +46,21 @@ setupDropZone(
 function updateRunBtn() {
   runBtn.disabled = !selectedFile || !modelSel.value;
 }
-modelSel.addEventListener("change", updateRunBtn);
+
+function updateVerboseToggle() {
+  const cap = modelCapabilities[modelSel.value];
+  if (cap && cap.supports_thinking) {
+    verboseLabel.style.display = "";
+  } else {
+    verboseLabel.style.display = "none";
+    verboseToggle.checked = false;
+  }
+}
+
+modelSel.addEventListener("change", () => {
+  updateRunBtn();
+  updateVerboseToggle();
+});
 
 // ── Pre-fill from URL params ────────────────────────────────
 
@@ -64,11 +85,16 @@ runBtn.addEventListener("click", runInference);
 async function runInference() {
   if (!selectedFile || !modelSel.value) return;
 
+  if (verboseToggle.checked) {
+    return runInferenceStreaming();
+  }
+
   hideError();
   runBtn.disabled = true;
   runBtn.innerHTML = '<span class="spinner"></span>Running...';
   abortBtn.style.display = "inline-block";
   responseSection.classList.remove("visible");
+  thinkingPanel.classList.remove("visible");
 
   let seconds = 0;
   const timeoutLabel = inferTimeout ? `timeout after ${formatElapsed(inferTimeout)}` : "";
@@ -110,11 +136,132 @@ async function runInference() {
   }
 }
 
+async function runInferenceStreaming() {
+  hideError();
+  runBtn.disabled = true;
+  runBtn.innerHTML = '<span class="spinner"></span>Running...';
+  abortBtn.style.display = "inline-block";
+  responseSection.classList.remove("visible");
+
+  thinkingPanel.classList.add("visible");
+  thinkingContent.textContent = "";
+  thinkingStatus.innerHTML = '<span class="spinner"></span>Waiting for model...';
+
+  let seconds = 0;
+  const timeoutLabel = inferTimeout ? `timeout after ${formatElapsed(inferTimeout)}` : "";
+  elapsedEl.textContent = timeoutLabel ? `0s · ${timeoutLabel}` : "0s";
+  elapsedTimer = setInterval(() => {
+    seconds++;
+    const elapsed = formatElapsed(seconds);
+    elapsedEl.textContent = timeoutLabel ? `${elapsed} · ${timeoutLabel}` : elapsed;
+  }, 1000);
+
+  const formData = new FormData();
+  formData.append("image", selectedFile);
+  formData.append("prompt", promptEl.value);
+  formData.append("model", modelSel.value);
+
+  streamAbortController = new AbortController();
+
+  try {
+    const resp = await fetch("/api/infer/stream", {
+      method: "POST",
+      body: formData,
+      signal: streamAbortController.signal,
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.detail || `Inference failed (${resp.status})`);
+    }
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let hasThinking = false;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop();
+
+      let currentEvent = null;
+      for (const line of lines) {
+        if (line.startsWith("event: ")) {
+          currentEvent = line.slice(7).trim();
+        } else if (line.startsWith("data: ") && currentEvent) {
+          const data = JSON.parse(line.slice(6));
+          if (currentEvent === "thinking") hasThinking = true;
+          handleStreamEvent(currentEvent, data, hasThinking);
+          currentEvent = null;
+        }
+      }
+    }
+  } catch (e) {
+    clearInterval(elapsedTimer);
+    if (e.name !== "AbortError") {
+      showError(e.message);
+    }
+    loadHistory(1);
+  } finally {
+    clearInterval(elapsedTimer);
+    runBtn.disabled = false;
+    runBtn.textContent = "Run Inference";
+    abortBtn.style.display = "none";
+    abortBtn.disabled = false;
+    abortBtn.textContent = "Abort";
+    streamAbortController = null;
+    updateRunBtn();
+  }
+}
+
+function handleStreamEvent(event, data, hasThinking) {
+  switch (event) {
+    case "thinking":
+      thinkingContent.textContent += data.text;
+      thinkingStatus.innerHTML = '<span class="spinner"></span>Thinking...';
+      thinkingContent.scrollTop = thinkingContent.scrollHeight;
+      break;
+    case "content":
+      if (hasThinking) {
+        thinkingStatus.textContent = "Done thinking — generating response...";
+      } else {
+        thinkingStatus.innerHTML = '<span class="spinner"></span>Generating response...';
+      }
+      break;
+    case "done":
+      clearInterval(elapsedTimer);
+      thinkingStatus.textContent = hasThinking
+        ? "Thinking complete"
+        : "No thinking output from this model";
+      showResponse(data);
+      loadHistory(1);
+      break;
+    case "abort":
+      clearInterval(elapsedTimer);
+      thinkingStatus.textContent = "Aborted";
+      loadHistory(1);
+      break;
+    case "error":
+      clearInterval(elapsedTimer);
+      showError(data.detail || "Streaming inference failed");
+      thinkingStatus.textContent = "Error";
+      loadHistory(1);
+      break;
+  }
+}
+
 abortBtn.addEventListener("click", async () => {
   abortBtn.disabled = true;
   abortBtn.textContent = "Aborting...";
   try {
     await fetch("/api/infer/abort", { method: "POST" });
+    if (streamAbortController) {
+      streamAbortController.abort();
+    }
   } catch (e) {
     // Ignore - the /api/infer response will handle it
   }
@@ -172,6 +319,9 @@ clearBtn.addEventListener("click", () => {
   dropZone.innerHTML = "<p>Drop image here<br>or click to browse</p>";
   promptEl.value = "";
   responseSection.classList.remove("visible");
+  thinkingPanel.classList.remove("visible");
+  thinkingContent.textContent = "";
+  thinkingStatus.textContent = "";
   hideError();
   elapsedEl.textContent = "";
   updateRunBtn();
@@ -329,6 +479,14 @@ async function deleteInference(id) {
 // ── Init ────────────────────────────────────────────────────
 
 fetch("/api/config").then(r => r.json()).then(c => { inferTimeout = c.infer_timeout; }).catch(() => {});
-loadModels(modelSel).then(() => updateRunBtn());
+loadModels(modelSel).then((models) => {
+  if (models) {
+    for (const m of models) {
+      modelCapabilities[m.name] = { supports_thinking: m.supports_thinking };
+    }
+  }
+  updateRunBtn();
+  updateVerboseToggle();
+});
 prefillFromParams();
 loadHistory(1);

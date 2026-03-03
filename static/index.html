@@ -35,9 +35,22 @@
           <button class="btn-primary" id="runBtn" disabled>Run Inference</button>
           <button class="btn-danger" id="abortBtn" style="display:none;">Abort</button>
           <button class="btn-secondary" id="clearBtn">Clear</button>
+          <label class="toggle-label" id="verboseLabel" style="display:none;">
+            <input type="checkbox" id="verboseToggle">
+            <span class="toggle-text">Verbose</span>
+          </label>
           <span class="elapsed" id="elapsed"></span>
         </div>
       </div>
+    </div>
+
+    <!-- Thinking panel (verbose mode) -->
+    <div class="thinking-panel" id="thinkingPanel">
+      <div class="thinking-header">
+        <h3>Thinking</h3>
+        <span class="thinking-status" id="thinkingStatus"></span>
+      </div>
+      <div class="thinking-content" id="thinkingContent"></div>
     </div>
 
     <!-- Response section -->
